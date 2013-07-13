@@ -1,4 +1,4 @@
 Inchoo-PreCache
 ===============
 
-Pre-cache script for Magento
+Magento pre-cache PHP script
