@@ -268,7 +268,7 @@ USAGE;
             // $categoryUrlKey and $productUrlKey is not null
             $categoryUrl = $this->_precacheBaseUrl;
             
-            if($this->isWebUrlUseStore()) {
+            if($this->_isWebUrlUseStore()) {
                 $categoryUrl .= $store->getCode().'/';
             } 
             
@@ -276,7 +276,7 @@ USAGE;
                 .$productUrlKey
                 .$this->_precacheProductSuffix;
 
-            if(!$this->isWebUrlUseStore()) {
+            if(!$this->_isWebUrlUseStore()) {
                 $categoryUrl .= '?___store='.$store->getCode();
             }
         } else{
@@ -303,7 +303,7 @@ USAGE;
         return (int) $response->getStatus();
     }
     
-    protected function isWebUrlUseStore()
+    protected function _isWebUrlUseStore()
     {
         return (bool) Mage::getStoreConfig('web/url/use_store');
     }
