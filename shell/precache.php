@@ -115,7 +115,7 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
 
                 $storeCode = $store->getCode();
 
-                $categoryCollection = $this->_factory->getModel('catalog/category')
+                $categoryCollection = Mage::getModel('catalog/category')
                     ->getCollection()
                     ->addNameToResult()
                     ->addUrlRewriteToResult()
@@ -151,9 +151,9 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
                         ->addAttributeToSelect('name')
                         ->addAttributeToSelect('url_key');
 
-                    $this->_factory->getSingleton('catalog/product_visibility')
+                    Mage::getSingleton('catalog/product_visibility')
                         ->addVisibleInCatalogFilterToCollection($productCollection);
-                    $this->_factory->getSingleton('catalog/product_status')
+                    Mage::getSingleton('catalog/product_status')
                         ->addVisibleFilterToCollection($productCollection);
 
                     if(!($psize = $productCollection->getSize())) {
