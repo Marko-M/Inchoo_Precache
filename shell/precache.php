@@ -44,6 +44,8 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
     protected $_precacheSCount = 0;
 
     protected $_precacheBaseUrl;
+    protected $_precacheProductSuffix;
+    protected $_precacheCategorySuffix;
 
     public function __construct() {
         parent::__construct();
@@ -51,6 +53,12 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
         set_time_limit(0);
 
         $this->_precacheBaseUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
+        
+        $this->_precacheProductSuffix = Mage::helper('catalog/product')
+                ->getProductUrlSuffix();
+        
+        $this->_precacheCategorySuffix = Mage::helper('catalog/category')
+                ->getCategoryUrlSuffix();        
 
         if($this->getArg('stores')) {
             $this->_precacheStores = array_merge(
@@ -163,6 +171,16 @@ USAGE;
         printf('Processing "%s" category'."\n", $categoryName);
 
         $this->_precacheCCount++;
+        
+        if($category->getId() !== $store->getRootCategoryId()) {
+            $categoryUrl = $category->getUrl();
+
+            printf(
+                "\t".'Category URL: %s [%d]'."\n",
+                $categoryUrl,
+                $this->_precacheHttpRequest($categoryUrl)
+            );              
+        }      
 
         $productCollection = $category->getProductCollection()
             ->addAttributeToSelect('name')
@@ -237,7 +255,10 @@ USAGE;
          *
          */
         if($category->getRequestPath()) {
-            $categoryUrlKey = $category->getRequestPath();
+            $categoryUrlKey = preg_replace(
+                '/'. preg_quote($this->_precacheCategorySuffix, '/') . '$/', '',
+                $category->getRequestPath()
+            );
             /* Fallback - use previous store's category url key if
              * that key exists or else ignore rewrite information
              */
@@ -245,14 +266,19 @@ USAGE;
 
         if($categoryUrlKey && ($productUrlKey = $product->getUrlKey())) {
             // $categoryUrlKey and $productUrlKey is not null
-            $categoryUrl = $this->_precacheBaseUrl
-                .$store->getCode()
-                .'/'
-                .$categoryUrlKey
-                .'/'
+            $categoryUrl = $this->_precacheBaseUrl;
+            
+            if($this->isWebUrlUseStore()) {
+                $categoryUrl .= $store->getCode().'/';
+            } 
+            
+            $categoryUrl .= $categoryUrlKey.'/'
                 .$productUrlKey
-                .'.'
-                .Mage::helper('catalog/product')->getProductUrlSuffix();
+                .$this->_precacheProductSuffix;
+
+            if(!$this->isWebUrlUseStore()) {
+                $categoryUrl .= '?___store='.$store->getCode();
+            }
         } else{
             // Fallback - don't use rewrite
             $categoryUrl = Mage::getUrl(
@@ -275,6 +301,11 @@ USAGE;
         $response = $client->request();
 
         return (int) $response->getStatus();
+    }
+    
+    protected function isWebUrlUseStore()
+    {
+        return (bool) Mage::getStoreConfig('web/url/use_store');
     }
 
 }
