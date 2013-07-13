@@ -7,5 +7,5 @@ Usage Instructions
 ------------------
 
 <pre>
-php -f precache.php help
+php -f precache.php -- help
 </pre>
