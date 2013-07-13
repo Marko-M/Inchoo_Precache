@@ -87,7 +87,7 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
 
             printf(
                 'Selected categories: %s'."\n",
-                '"'.implode('", "', $this->_precacheCategories).'"'
+                $selectedCategories
             );
 
             echo "\n";
