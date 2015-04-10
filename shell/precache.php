@@ -144,13 +144,13 @@ USAGE;
     protected function _precacheProcessStore($store)
     {
         $storeName = $store->getName();
-
-        if(!empty($this->_precacheStores) &&
-                !in_array($storeName, $this->_precacheStores)) {
-            continue;
-        }
-
-        printf('Processing "%s" store'."\n", $storeName);
+        $store_array = $this->_precacheStores;
+        
+        foreach($store_array as $store_name)
+        {
+           if($store_name == $storeName): 
+            
+            printf('Processing "%s" store'."\n", $storeName);
 
         $this->_precacheSCount++;
 
@@ -162,6 +162,9 @@ USAGE;
         $this->_precacheProcessCategory($rootCategory, $store);
 
         echo "\n";
+           endif;  
+        }
+        
     }
 
     protected function _precacheProcessCategory($category, $store)
