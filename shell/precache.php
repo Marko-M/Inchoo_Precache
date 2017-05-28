@@ -147,7 +147,7 @@ USAGE;
 
         if(!empty($this->_precacheStores) &&
                 !in_array($storeName, $this->_precacheStores)) {
-            continue;
+            return;
         }
 
         printf('Processing "%s" store'."\n", $storeName);
