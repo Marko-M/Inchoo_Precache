@@ -33,34 +33,21 @@
 
 require_once 'abstract.php';
 
-class Inchoo_Shell_Precache extends Mage_Shell_Abstract
+cclass Inchoo_Shell_Precache extends Mage_Shell_Abstract
 {
     protected $_precacheStores = array();
 
-    protected $_precacheCategories = array();
-
     protected $_precachePCount = 0;
-    protected $_precacheCCount = 0;
-    protected $_precacheSCount = 0;
+    protected $_precacheUCount = 0;
 
     protected $_precacheBaseUrl;
-    protected $_precacheProductSuffix;
-    protected $_precacheCategorySuffix;
 
-    public function __construct() {
-        parent::__construct();
 
-        set_time_limit(0);
+    public function run() {
 
-        $this->_precacheBaseUrl = Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_WEB);
+		set_time_limit(0);
         
-        $this->_precacheProductSuffix = Mage::helper('catalog/product')
-                ->getProductUrlSuffix();
-        
-        $this->_precacheCategorySuffix = Mage::helper('catalog/category')
-                ->getCategoryUrlSuffix();        
-
-        if($this->getArg('stores')) {
+		if($this->getArg('stores')) {
             $this->_precacheStores = array_merge(
                 $this->_precacheStores,
                 array_map(
@@ -69,19 +56,6 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
                 )
             );
         }
-
-        if($this->getArg('categories')) {
-            $this->_precacheCategories = array_merge(
-                $this->_precacheCategories,
-                array_map(
-                    'trim',
-                    explode(',', $this->getArg('categories'))
-                )
-            );
-        }
-    }
-
-    public function run() {
 
         try {
 
@@ -96,17 +70,6 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
                 $selectedStores
             );
 
-            if(!empty($this->_precacheCategories)) {
-                $selectedCategories = '"'.implode('", "', $this->_precacheCategories).'"';
-            } else {
-                $selectedCategories = 'All';
-            }
-
-            printf(
-                'Selected categories: %s'."\n",
-                $selectedCategories
-            );
-
             echo "\n";
 
             $stores = Mage::app()->getStores();
@@ -117,9 +80,8 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
             printf(
                 'Done processing.'."\n"
                     .'Total processed stores count: %d'."\n"
-                    .'Total processed categories count: %d'."\n"
-                    .'Total processed products count: %d'."\n",
-                $this->_precacheSCount, $this->_precacheCCount, $this->_precachePCount
+                    .'Total processed pages count: %d'."\n",
+                $this->_precacheSCount, $this->_precacheUCount
             );
 
         } catch (Exception $e) {
@@ -131,10 +93,9 @@ class Inchoo_Shell_Precache extends Mage_Shell_Abstract
     public function usageHelp()
     {
         return <<<USAGE
-Usage:  php -f precache.php -- [options]
+Usage:  php -f precache.php  --[options]
 
-  --stores <names>       Process only these stores (comma-separated)
-  --categories <names>   Process only these categories (comma-separated)
+  --stores <names>       Process only these stores (comma-separated store view names)
 
   help                   This help
 
@@ -156,142 +117,17 @@ USAGE;
 
         Mage::app()->setCurrentStore($store->getId());
 
-        $rootCategory = Mage::getModel('catalog/category')
-            ->load($store->getRootCategoryId());
+		$collection = Mage::getModel('sitemap/sitemap')->getCollection();
 
-        $this->_precacheProcessCategory($rootCategory, $store);
+		var_dump($collection);
 
+		foreach($collection as $sitemap) {
+			echo $url;
+			$url = substr_replace(Mage::getBaseUrl() ,"",-1) . $sitemap->getData('sitemap_path') . $sitemap->getData('sitemap_filename');
+			printf("\t%s%s: %d",$storeName, $url, $this->_precacheHttpRequest($categoryUrl));
+			$this->_precacheUCount++;
+		}
         echo "\n";
-    }
-
-    protected function _precacheProcessCategory($category, $store)
-    {
-        $categoryName = $category->getName();
-
-        printf('Processing "%s" category'."\n", $categoryName);
-
-        $this->_precacheCCount++;
-        
-        if($category->getId() !== $store->getRootCategoryId()) {
-            $categoryUrl = $category->getUrl();
-
-            printf(
-                "\t".'Category URL: %s [%d]'."\n",
-                $categoryUrl,
-                $this->_precacheHttpRequest($categoryUrl)
-            );              
-        }      
-
-        $productCollection = $category->getProductCollection()
-            ->addAttributeToSelect('name')
-            ->addAttributeToSelect('url_key');
-
-        Mage::getSingleton('catalog/product_visibility')
-            ->addVisibleInCatalogFilterToCollection($productCollection);
-        Mage::getSingleton('catalog/product_status')
-            ->addVisibleFilterToCollection($productCollection);
-
-        if(!($psize = $productCollection->getSize())) {
-            printf('No enabled and visible in catalog products inside this category. Continue...'."\n", $categoryName);
-        }
-
-        printf('Total product count inside this category is %d'."\n", $psize);
-
-        foreach ($productCollection as $product) {
-            $this->_precacheProcessProduct($product, $category, $store);
-        }
-
-        $categoryCollection = Mage::getModel('catalog/category')
-            ->getCollection()
-            ->addNameToResult()
-            ->addUrlRewriteToResult()
-            ->addIsActiveFilter()
-            ->addAttributeToFilter('parent_id', $category->getId());
-
-        if(!empty($this->_precacheCategories)) {
-            $categoryCollection
-                ->addAttributeToFilter(array(
-                    array(
-                        'attribute' => 'name',
-                        'in' => $this->_precacheCategories,
-                    )
-                ));
-        }
-
-        if(!($csize = $categoryCollection->getSize())) {
-            echo 'No active subcategories match inside this category. Continue...'."\n";
-
-            return;
-        }
-
-        printf('Total subcategories count match inside this category is %d'."\n", $csize);
-
-        foreach ($categoryCollection as $childCategory) {
-            $this->_precacheProcessCategory($childCategory, $store);
-        }
-
-        echo "\n";
-    }
-
-    protected function _precacheProcessProduct($product, $category, $store)
-    {
-        printf('%d. %s:'."\n", ++$this->_precachePCount, $product->getSku());
-
-        $canonicalUrl = $product->getProductUrl();
-
-        printf(
-            "\t".'Canonical URL: %s [%d]'."\n",
-            $canonicalUrl,
-            $this->_precacheHttpRequest($canonicalUrl)
-        );
-
-        /*
-         * $category->getRequestPath() and $product->getUrlKey()
-         * sometimes returns null due to bug with duplicate
-         * request_path/url_key in multiple stores.
-         *
-         * Related Magento bug:
-         * http://www.magentocommerce.com/bug-tracking/issue?issue=15035
-         *
-         */
-        if($category->getRequestPath()) {
-            $categoryUrlKey = preg_replace(
-                '/'. preg_quote($this->_precacheCategorySuffix, '/') . '$/', '',
-                $category->getRequestPath()
-            );
-            /* Fallback - use previous store's category url key if
-             * that key exists or else ignore rewrite information
-             */
-        }
-
-        if($categoryUrlKey && ($productUrlKey = $product->getUrlKey())) {
-            // $categoryUrlKey and $productUrlKey is not null
-            $categoryUrl = $this->_precacheBaseUrl;
-            
-            if($this->_isWebUrlUseStore()) {
-                $categoryUrl .= $store->getCode().'/';
-            } 
-            
-            $categoryUrl .= $categoryUrlKey.'/'
-                .$productUrlKey
-                .$this->_precacheProductSuffix;
-
-            if(!$this->_isWebUrlUseStore()) {
-                $categoryUrl .= '?___store='.$store->getCode();
-            }
-        } else{
-            // Fallback - don't use rewrite
-            $categoryUrl = Mage::getUrl(
-                'catalog/product/view',
-                array('id' => $product->getId())
-            );
-        }
-
-        printf(
-            "\t".'Category URL: %s [%d]'."\n",
-            $categoryUrl,
-            $this->_precacheHttpRequest($categoryUrl)
-        );
     }
 
     protected function _precacheHttpRequest($url)
@@ -303,12 +139,8 @@ USAGE;
         return (int) $response->getStatus();
     }
     
-    protected function _isWebUrlUseStore()
-    {
-        return (bool) Mage::getStoreConfig('web/url/use_store');
-    }
-
 }
 
 $shell = new Inchoo_Shell_Precache();
 $shell->run();
+
